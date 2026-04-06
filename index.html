@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultimate XO - Rounded Floating Grids</title>
+    <title>Ultimate XO - Perfect Centered</title>
     <style>
         :root {
-            /* Die einheitliche Hintergrundfarbe für alles */
             --bg-color: #f8f9fa; 
             --line-color: #1a1a1a;
         }
@@ -58,11 +57,11 @@
         .grid-line {
             position: absolute;
             background-color: var(--line-color);
-            pointer-events: none; /* Klicks gehen durch die Linien hindurch */
+            pointer-events: none; 
             z-index: 1;
         }
 
-        /* Große Linien: 12px dick, 6px Radius für perfekten Halbkreis */
+        /* Große Linien: 12px dick, 6px Radius */
         .big-line { border-radius: 6px; }
         .big-line.v-line { width: 12px; height: 100%; top: 0; }
         .big-line.h-line { height: 12px; width: 100%; left: 0; }
@@ -94,21 +93,23 @@
 
         .big-cell-wrapper {
             position: relative;
-            /* Dieser Abstand sorgt dafür, dass die inneren und äußeren Linien sich NICHT berühren */
-            padding: 12%; 
+            padding: 12%; /* Diese Lücke trennt das innere Feld von den schwarzen Linien */
             display: flex; align-items: center; justify-content: center;
-            border-radius: 20px;
-            transition: box-shadow 0.3s ease;
-        }
-
-        /* Dezentes Leuchten für das aktive Feld (gleiche Hintergrundfarbe bleibt) */
-        .big-cell-wrapper.active { 
-            box-shadow: inset 0 0 30px rgba(0, 150, 200, 0.1); 
         }
 
         .small-board {
             position: relative;
             width: 100%; height: 100%;
+            border-radius: 12px; /* Runde Ecken für den Leucht-Hintergrund */
+            transition: all 0.3s ease; /* Weicher Übergang */
+        }
+
+        /* NEU: Das Leuchten liegt nur noch auf dem kleinen Board, NICHT mehr auf dem Wrapper. 
+           Dadurch berührt es die äußeren schwarzen Linien nicht mehr! */
+        .big-cell-wrapper.active .small-board { 
+            background-color: #e6f7ff; 
+            box-shadow: inset 0 0 20px rgba(0, 150, 200, 0.15), 
+                        0 0 15px rgba(0, 150, 200, 0.3); 
         }
 
         .small-cells-grid {
@@ -122,30 +123,40 @@
 
         .small-cell {
             background-color: transparent;
-            display: flex; align-items: center; justify-content: center;
+            /* Perfekte Zentrierung durch Grid und Line-Height 1 */
+            display: grid; 
+            place-items: center; 
+            line-height: 1;
+            margin: 0;
+            padding: 0;
+            
             cursor: pointer; 
             font-size: 6vmin;
             font-weight: bold;
             border-radius: 8px;
         }
 
-        /* Sanfter Hover für das blinde Setzen */
         .small-cell:hover:not(.taken) { background-color: rgba(0, 0, 0, 0.04); }
         .small-cell.taken { cursor: default; }
         
         .small-cell.x-mark { color: #d32f2f; }
         .small-cell.o-mark { color: #1976d2; }
 
-        /* Gewonnen-Overlay (verdeckt das kleine Gitter komplett mit der Hintergrundfarbe) */
+        /* Gewonnen-Overlay (auch dieses ist sicher innerhalb der Linien) */
         .big-cell-wrapper.won-X::after, .big-cell-wrapper.won-O::after {
             content: attr(data-winner);
-            position: absolute; top: 5%; left: 5%; width: 90%; height: 90%;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; 
+            top: 10%; left: 10%; width: 80%; height: 80%; /* Verkleinert, um die Linien nicht zu berühren */
+            
+            display: grid; 
+            place-items: center; 
+            line-height: 1;
+            
             font-size: 18vmin; font-weight: bold; 
-            background-color: var(--bg-color); /* Gleiche Farbe wie der Hintergrund */
+            background-color: var(--bg-color); 
             border-radius: 15px;
             z-index: 10;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* Leichter 3D-Effekt für das Gewinner-Symbol */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
         }
         .big-cell-wrapper.won-X::after { color: #d32f2f; }
         .big-cell-wrapper.won-O::after { color: #1976d2; }
@@ -183,11 +194,7 @@
 
         function createBoard() {
             const boardEl = document.getElementById('board');
-            
-            // 1. Große Linien einfügen
             let html = createGridLinesHTML(true);
-            
-            // 2. Container für die 9 großen Felder
             html += `<div class="big-cells-grid">`;
             
             for (let i = 0; i < 9; i++) {
@@ -196,14 +203,13 @@
                                 ${createGridLinesHTML(false)}
                                 <div class="small-cells-grid">`;
                 for (let j = 0; j < 9; j++) {
-                    html += `<div class="small-cell" onclick="handleMove(${i}, ${j})"></div>`;
+                    html += `<div class="small-cell" onclick="handleMove(${i}, ${j})"><span></span></div>`;
                 }
                 html += `       </div>
                             </div>
                          </div>`;
             }
             html += `</div>`;
-            
             boardEl.innerHTML = html;
             updateVisuals();
         }
@@ -214,10 +220,11 @@
 
             const wrapperEl = document.getElementById(`wrapper-${bigIdx}`);
             const smallCellEl = wrapperEl.querySelectorAll('.small-cell')[smallIdx];
+            const spanEl = smallCellEl.querySelector('span');
 
             if (smallCellEl.classList.contains('taken')) return;
 
-            smallCellEl.innerText = currentPlayer;
+            spanEl.innerText = currentPlayer;
             smallCellEl.classList.add('taken', currentPlayer === 'X' ? 'x-mark' : 'o-mark');
 
             checkSmallWin(bigIdx);
@@ -243,7 +250,7 @@
         }
 
         function checkSmallWin(bigIdx) {
-            const cells = Array.from(document.getElementById(`wrapper-${bigIdx}`).querySelectorAll('.small-cell')).map(c => c.innerText);
+            const cells = Array.from(document.getElementById(`wrapper-${bigIdx}`).querySelectorAll('.small-cell span')).map(span => span.innerText);
             const winner = calculateWinner(cells);
             if (winner) {
                 bigBoardWinners[bigIdx] = winner;
