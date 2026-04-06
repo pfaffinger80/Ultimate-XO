@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate XO - Rounded Floating Grids</title>
+    <style>
+        :root {
+            /* Die einheitliche Hintergrundfarbe für alles */
+            --bg-color: #f8f9fa; 
+            --line-color: #1a1a1a;
+        }
+
+        * { box-sizing: border-box; }
+        
+        html, body { 
+            margin: 0; padding: 0;
+            width: 100vw; height: 100dvh; 
+            overflow: hidden; 
+            background-color: var(--bg-color); 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; flex-direction: column; align-items: center; 
+        }
+
+        .header { 
+            height: 100px; width: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            flex-shrink: 0; position: relative;
+            z-index: 10;
+        }
+
+        h1 { margin: 0; font-size: 24px; color: #333; }
+        #status { margin: 4px 0 0 0; font-size: 16px; color: #555; }
+        
+        button {
+            position: absolute; right: 20px;
+            padding: 6px 14px;
+            background: #333; color: white;
+            border: none; border-radius: 20px;
+            cursor: pointer; font-weight: bold;
+        }
+
+        .board-container {
+            flex-grow: 1; width: 100%;
+            display: flex; align-items: center; justify-content: center;
+            padding: 10px;
+        }
+
+        /* Der Haupt-Container für das Spiel */
+        .ultimate-board {
+            position: relative;
+            width: min(95vw, calc(100dvh - 120px));
+            height: min(95vw, calc(100dvh - 120px));
+        }
+
+        /* --- DIE ABSOLUTEN LINIEN (Halbkreis-Kappen) --- */
+        .grid-line {
+            position: absolute;
+            background-color: var(--line-color);
+            pointer-events: none; /* Klicks gehen durch die Linien hindurch */
+            z-index: 1;
+        }
+
+        /* Große Linien: 12px dick, 6px Radius für perfekten Halbkreis */
+        .big-line { border-radius: 6px; }
+        .big-line.v-line { width: 12px; height: 100%; top: 0; }
+        .big-line.h-line { height: 12px; width: 100%; left: 0; }
+        
+        .bl-v1 { left: calc(33.333% - 6px); }
+        .bl-v2 { left: calc(66.666% - 6px); }
+        .bl-h1 { top: calc(33.333% - 6px); }
+        .bl-h2 { top: calc(66.666% - 6px); }
+
+        /* Kleine Linien: 6px dick, 3px Radius */
+        .small-line { border-radius: 3px; }
+        .small-line.v-line { width: 6px; height: 100%; top: 0; }
+        .small-line.h-line { height: 6px; width: 100%; left: 0; }
+
+        .sl-v1 { left: calc(33.333% - 3px); }
+        .sl-v2 { left: calc(66.666% - 3px); }
+        .sl-h1 { top: calc(33.333% - 3px); }
+        .sl-h2 { top: calc(66.666% - 3px); }
+
+        /* --- DIE KLICKBAREN BEREICHE --- */
+        .big-cells-grid {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            z-index: 2;
+        }
+
+        .big-cell-wrapper {
+            position: relative;
+            /* Dieser Abstand sorgt dafür, dass die inneren und äußeren Linien sich NICHT berühren */
+            padding: 12%; 
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 20px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        /* Dezentes Leuchten für das aktive Feld (gleiche Hintergrundfarbe bleibt) */
+        .big-cell-wrapper.active { 
+            box-shadow: inset 0 0 30px rgba(0, 150, 200, 0.1); 
+        }
+
+        .small-board {
+            position: relative;
+            width: 100%; height: 100%;
+        }
+
+        .small-cells-grid {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            z-index: 3;
+        }
+
+        .small-cell {
+            background-color: transparent;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; 
+            font-size: 6vmin;
+            font-weight: bold;
+            border-radius: 8px;
+        }
+
+        /* Sanfter Hover für das blinde Setzen */
+        .small-cell:hover:not(.taken) { background-color: rgba(0, 0, 0, 0.04); }
+        .small-cell.taken { cursor: default; }
+        
+        .small-cell.x-mark { color: #d32f2f; }
+        .small-cell.o-mark { color: #1976d2; }
+
+        /* Gewonnen-Overlay (verdeckt das kleine Gitter komplett mit der Hintergrundfarbe) */
+        .big-cell-wrapper.won-X::after, .big-cell-wrapper.won-O::after {
+            content: attr(data-winner);
+            position: absolute; top: 5%; left: 5%; width: 90%; height: 90%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18vmin; font-weight: bold; 
+            background-color: var(--bg-color); /* Gleiche Farbe wie der Hintergrund */
+            border-radius: 15px;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* Leichter 3D-Effekt für das Gewinner-Symbol */
+        }
+        .big-cell-wrapper.won-X::after { color: #d32f2f; }
+        .big-cell-wrapper.won-O::after { color: #1976d2; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Ultimate XO</h1>
+        <p id="status">Spieler <b style="color:#d32f2f">X</b> beginnt</p>
+        <button onclick="resetGame()">Neustart</button>
+    </div>
+
+    <div class="board-container">
+        <div class="ultimate-board" id="board"></div>
+    </div>
+
+    <script>
+        let currentPlayer = 'X';
+        let activeBigCell = -1; 
+        let bigBoardWinners = Array(9).fill(null);
+        let gameOver = false;
+
+        function createGridLinesHTML(isBig) {
+            const sizeClass = isBig ? 'big-line' : 'small-line';
+            const prefix = isBig ? 'bl' : 'sl';
+            return `
+                <div class="grid-line v-line ${sizeClass} ${prefix}-v1"></div>
+                <div class="grid-line v-line ${sizeClass} ${prefix}-v2"></div>
+                <div class="grid-line h-line ${sizeClass} ${prefix}-h1"></div>
+                <div class="grid-line h-line ${sizeClass} ${prefix}-h2"></div>
+            `;
+        }
+
+        function createBoard() {
+            const boardEl = document.getElementById('board');
+            
+            // 1. Große Linien einfügen
+            let html = createGridLinesHTML(true);
+            
+            // 2. Container für die 9 großen Felder
+            html += `<div class="big-cells-grid">`;
+            
+            for (let i = 0; i < 9; i++) {
+                html += `<div class="big-cell-wrapper" id="wrapper-${i}">
+                            <div class="small-board">
+                                ${createGridLinesHTML(false)}
+                                <div class="small-cells-grid">`;
+                for (let j = 0; j < 9; j++) {
+                    html += `<div class="small-cell" onclick="handleMove(${i}, ${j})"></div>`;
+                }
+                html += `       </div>
+                            </div>
+                         </div>`;
+            }
+            html += `</div>`;
+            
+            boardEl.innerHTML = html;
+            updateVisuals();
+        }
+
+        function handleMove(bigIdx, smallIdx) {
+            if (gameOver || bigBoardWinners[bigIdx]) return;
+            if (activeBigCell !== -1 && activeBigCell !== bigIdx) return;
+
+            const wrapperEl = document.getElementById(`wrapper-${bigIdx}`);
+            const smallCellEl = wrapperEl.querySelectorAll('.small-cell')[smallIdx];
+
+            if (smallCellEl.classList.contains('taken')) return;
+
+            smallCellEl.innerText = currentPlayer;
+            smallCellEl.classList.add('taken', currentPlayer === 'X' ? 'x-mark' : 'o-mark');
+
+            checkSmallWin(bigIdx);
+            
+            if (bigBoardWinners[smallIdx] !== null || isFull(smallIdx)) {
+                activeBigCell = -1;
+            } else {
+                activeBigCell = smallIdx;
+            }
+
+            checkBigWin();
+            if (!gameOver) {
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                const statusColor = currentPlayer === 'X' ? '#d32f2f' : '#1976d2';
+                document.getElementById('status').innerHTML = `Spieler <b style="color: ${statusColor}">${currentPlayer}</b> ist am Zug`;
+                updateVisuals();
+            }
+        }
+
+        function isFull(bigIdx) {
+            const cells = document.getElementById(`wrapper-${bigIdx}`).querySelectorAll('.small-cell');
+            return Array.from(cells).every(c => c.classList.contains('taken'));
+        }
+
+        function checkSmallWin(bigIdx) {
+            const cells = Array.from(document.getElementById(`wrapper-${bigIdx}`).querySelectorAll('.small-cell')).map(c => c.innerText);
+            const winner = calculateWinner(cells);
+            if (winner) {
+                bigBoardWinners[bigIdx] = winner;
+                const wrapperEl = document.getElementById(`wrapper-${bigIdx}`);
+                wrapperEl.classList.add(`won-${winner}`);
+                wrapperEl.setAttribute('data-winner', winner);
+            }
+        }
+
+        function checkBigWin() {
+            const winner = calculateWinner(bigBoardWinners);
+            if (winner) {
+                const winColor = winner === 'X' ? '#d32f2f' : '#1976d2';
+                document.getElementById('status').innerHTML = `<b style="color: ${winColor}; font-size: 18px;">Spieler ${winner} gewinnt! 🎉</b>`;
+                gameOver = true;
+                activeBigCell = -1;
+                updateVisuals();
+            }
+        }
+
+        function calculateWinner(cells) {
+            const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            for (let [a, b, c] of lines) {
+                if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) return cells[a];
+            }
+            return null;
+        }
+
+        function updateVisuals() {
+            for (let i = 0; i < 9; i++) {
+                const wrapperEl = document.getElementById(`wrapper-${i}`);
+                wrapperEl.classList.remove('active');
+                if (!gameOver && (activeBigCell === -1 || activeBigCell === i) && !bigBoardWinners[i]) {
+                    wrapperEl.classList.add('active');
+                }
+            }
+        }
+
+        function resetGame() {
+            currentPlayer = 'X';
+            activeBigCell = -1;
+            bigBoardWinners = Array(9).fill(null);
+            gameOver = false;
+            document.getElementById('status').innerHTML = `Spieler <b style="color: #d32f2f">X</b> ist am Zug`;
+            createBoard();
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>
